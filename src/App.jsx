@@ -9,7 +9,7 @@ function useAuth() {
   useEffect(() => {
     if (!token) return
     fetch(`${API}/me`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject())
       .then(setMe)
       .catch(() => setMe(null))
   }, [token])
@@ -45,14 +45,24 @@ function Login({ onLogin }) {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
+    setLoading(true)
     try {
       await onLogin(email, password)
     } catch (e) {
-      setError(e.message)
+      // Try reseeding demo data once, then retry login
+      try {
+        await fetch(`${API}/seed?reset=true`, { method: 'POST' })
+        await onLogin(email, password)
+      } catch (e2) {
+        setError(e2.message || 'Login failed')
+      }
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -65,9 +75,9 @@ function Login({ onLogin }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input value={email} onChange={e=>setEmail(e.target.value)} className="w-full border rounded px-3 py-2" placeholder="Email" />
           <input value={password} onChange={e=>setPassword(e.target.value)} type="password" className="w-full border rounded px-3 py-2" placeholder="Password" />
-          <button className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Sign In</button>
+          <button disabled={loading} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-60">{loading? 'Signing in...':'Sign In'}</button>
         </form>
-        <p className="text-xs text-slate-500 mt-4">Seed creds after server starts: admin@demo.com / admin123, lead@demo.com / lead123, emp1@demo.com / emp123</p>
+        <p className="text-xs text-slate-500 mt-4">Seed creds: admin@demo.com / admin123, lead@demo.com / lead123, emp1@demo.com / emp123</p>
       </div>
     </div>
   )
